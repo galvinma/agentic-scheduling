@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from app.outputs import write_gantt_chart, write_schedule_csv
+from app.outputs import write_scatter_plot, write_schedule_csv
 from app.solver import build_and_solve
 
 INPUTS_DIR = Path(__file__).parent / "inputs"
@@ -45,7 +45,7 @@ def main():
     png_path = OUTPUTS_DIR / "schedule.png"
 
     write_schedule_csv(schedule, csv_path)
-    write_gantt_chart(schedule, png_path)
+    write_scatter_plot(schedule, png_path)
 
     print(f"\nOutputs written to {OUTPUTS_DIR}/")
     print(f"  {csv_path.name}")

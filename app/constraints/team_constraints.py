@@ -5,10 +5,12 @@ def add_team_constraints(model: cp_model.CpModel, assign: dict, teams_df, reques
     """
     Hard constraints:
     - Each physician assigned to at most one team per week
-    - Team B: exactly 1 physician per week
-    - Team C: exactly 1 physician per week
-    - Team A: at least 2 physicians per week
+    - Team B: exactly 1 physician per week (gap slack if infeasible)
+    - Team C: exactly 1 physician per week (gap slack if infeasible)
+    - Team A: at least 2, at most 4 physicians per week (gap slack if infeasible)
     - teams.csv[team][physician] == 0 → hard block for that team
+
+    Returns (gap_b, gap_c, gap_a) slack variable lists for use in objective.
     """
     clinicians = list(teams_df.columns)
     n_physicians = len(clinicians)
@@ -27,11 +29,23 @@ def add_team_constraints(model: cp_model.CpModel, assign: dict, teams_df, reques
         for w in range(n_weeks):
             model.add(sum(assign[p][w][t] for t in teams) <= 1)
 
-    # Team B exactly 1, Team C exactly 1
-    for w in range(n_weeks):
-        model.add(sum(assign[p][w]["B"] for p in range(n_physicians)) == 1)
-        model.add(sum(assign[p][w]["C"] for p in range(n_physicians)) == 1)
+    # Coverage constraints with gap slack variables
+    gap_b = [model.new_bool_var(f"gap_b_{w}") for w in range(n_weeks)]
+    gap_c = [model.new_bool_var(f"gap_c_{w}") for w in range(n_weeks)]
+    gap_a = [model.new_int_var(0, 2, f"gap_a_{w}") for w in range(n_weeks)]
 
-    # Team A at least 2
     for w in range(n_weeks):
-        model.add(sum(assign[p][w]["A"] for p in range(n_physicians)) >= 2)
+        b_sum = sum(assign[p][w]["B"] for p in range(n_physicians))
+        c_sum = sum(assign[p][w]["C"] for p in range(n_physicians))
+        a_sum = sum(assign[p][w]["A"] for p in range(n_physicians))
+
+        model.add(b_sum <= 1)
+        model.add(b_sum + gap_b[w] >= 1)
+
+        model.add(c_sum <= 1)
+        model.add(c_sum + gap_c[w] >= 1)
+
+        model.add(a_sum + gap_a[w] >= 2)
+        model.add(a_sum <= 4)
+
+    return gap_b, gap_c, gap_a
